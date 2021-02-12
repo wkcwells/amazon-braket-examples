@@ -92,7 +92,10 @@ def qpe(precision_qubits, query_qubits, unitary, control_unitary=True):
                 qpe_circ.controlled_unitary(qubit, query_qubits, unitary)
 
     # Apply inverse qft to the precision_qubits
-    ##### TODO: Temp qpe_circ.inverse_qft(precision_qubits)
+    if True:
+        print('##### QFT is commented out ####')
+    else:
+        qpe_circ.inverse_qft(precision_qubits)
 
     return qpe_circ
 
@@ -193,7 +196,7 @@ def get_qpe_phases(measurement_counts, precision_qubits, items_to_keep=1):
 
 
 def run_qpe(unitary, precision_qubits, query_qubits, query_circuit,
-            device, s3_folder=None, items_to_keep=1, shots=1000, poll_time=1000, save_to_pck=False):
+            device, s3_folder=None, items_to_keep=2, shots=1000, poll_time=1000, save_to_pck=False):
     """
     Function to run QPE algorithm end-to-end and return measurement counts.
 
@@ -259,12 +262,15 @@ def run_qpe(unitary, precision_qubits, query_qubits, query_circuit,
     bitstring_keys = [format_bitstring.format(ii) for ii in range(2**num_qubits)]
 
     # QPE postprocessing
-    phases_decimal = 0
-    eigenvalues = 0
-    precision_results_dic = 0
+    phases_decimal = None
+    eigenvalues = None
+    precision_results_dic = None
+    states = None
     if shots != 0:
         phases_decimal, precision_results_dic = get_qpe_phases(measurement_counts, precision_qubits, items_to_keep)
         eigenvalues = [np.exp(2*np.pi*1j*phase) for phase in phases_decimal]
+    else:
+        states = result.values[1]
 
     # aggregate results
     out = {'circuit': circ,
@@ -277,10 +283,8 @@ def run_qpe(unitary, precision_qubits, query_qubits, query_circuit,
            'bitstring_keys': bitstring_keys,
            'precision_results_dic': precision_results_dic,
            'phases_decimal': phases_decimal,
-           'eigenvalues': eigenvalues}
-
-    if shots == 0:
-        out['states']: result.values[1]
+           'eigenvalues': eigenvalues,
+           'states': states}
 
     if save_to_pck:
         # store results: dump output to pickle with timestamp in filename

@@ -4,9 +4,16 @@ import math
 import matplotlib.pyplot as plt
 
 # AWS imports: Import Amazon Braket SDK modules
+import braket
 from braket.circuits import Circuit, circuit
 from braket.devices import LocalSimulator
 from braket.aws import AwsDevice
+
+import sys
+sys.path.append('../../')
+import AWSBraket.utilities
+
+#### Much of this is copied from the QPE notebook ####
 
 ## HELPER FUNCTIONS FOR NUMERICAL TESTS
 # Because we will run the same code repeatedly, let's first create a helper function we can use to keep the notebook clean.
@@ -36,9 +43,7 @@ def postprocess_qpe_results(out):
     print('Printing circuit:')
     print(circ)
 
-    # print measurement results
-    print('Measurement counts:', measurement_counts)
-
+    # TODO: Why include the last bit - isnt that not part of the algo??
     # plot probabalities
     plt.bar(bitstring_keys, probs_values)
     plt.xlabel('bitstrings')
@@ -46,10 +51,20 @@ def postprocess_qpe_results(out):
     plt.xticks(rotation=90)
     plt.show()
 
-    # print results
-    print('Results in precision register:', precision_results_dic)
-    print('QPE phase estimates:', phases_decimal)
-    print('QPE eigenvalue estimates:', np.round(eigenvalues, 5))
+    metadata = out['task_metadata']
+    shots = metadata.shots
+    print('### SHOT COUNT: %d ###' % shots)
+    if shots == 0:
+        states = out['states']
+        for label, state in enumerate(states):
+            print('State #%d: %s' % (label, np.round(state, 5)))
+    else:
+        # print measurement results
+        print('Measurement counts:', measurement_counts)
+        # print results
+        print('Results in precision register:', precision_results_dic)
+        print('QPE phase estimates:', phases_decimal)
+        print('QPE eigenvalue estimates:', None if eigenvalues is None else np.round(eigenvalues, 5))
 
 
 #%%
@@ -72,6 +87,13 @@ Y = np.array([[0., -1.j],
               [1.j, 0.]])  # Pauli Y
 Z = np.array([[1., 0.],
               [0., -1.]])  # Pauli Z
+
+# Hadamard
+H = 1/np.sqrt(2.) * np.array([[1., 1.],
+              [1., -1.]])
+
+PHASE_SHIFT = np.array([[1., 0.],
+              [0., np.exp(1.j*2*math.pi/8)]])
 
 
 # set total number of qubits
@@ -134,10 +156,18 @@ precision_qubits = range(number_precision_qubits)
 query_qubits = [number_precision_qubits]
 
 # State preparation for eigenstate of U=X
-query = Circuit().h(query_qubits)
+query = Circuit().x(query_qubits).h(query_qubits)   # .z(query_qubits).h(query_qubits)
+#query = Circuit().phaseshift(query_qubits, 2 * np.pi / 8).h(query_qubits)
+
+# Just a test
+print(braket.circuits.gate.Gate.CPhaseShift(2 * np.pi / 8).to_matrix())
+
+AWSBraket.utilities.print_header('Running qpe circuit')
 
 # Run the test with U=X
 out = run_qpe(X, precision_qubits, query_qubits, query, device, shots=0)
+
+AWSBraket.utilities.print_header('Post processing qpe circuit')
 
 # Postprocess results
 postprocess_qpe_results(out)
